@@ -1,4 +1,4 @@
-# 完整版 send_email.py
+# 完整版 send_email.py（已修正空白問題）
 
 import yfinance as yf
 import pandas as pd
@@ -18,7 +18,9 @@ assets = [
 
 # 抓取每個資產的資料
 def get_asset_info(ticker):
-    df = yf.download(ticker, period="3mo", interval="1d")
+    df = yf.download(ticker, period="6mo", interval="1d")  # 拉長至6個月資料
+    if df.empty:
+        raise ValueError("無法取得資料")
     df = df[-50:].copy()
     df['EMA12'] = df['Close'].ewm(span=12, adjust=False).mean()
     df['EMA26'] = df['Close'].ewm(span=26, adjust=False).mean()
@@ -49,10 +51,20 @@ report = ""
 for asset in assets:
     try:
         info = get_asset_info(asset)
-        asset_report = f"{asset}:\n  - Close: {info['Close']}\n  - RSI: {info['RSI']}\n  - MACD: {info['MACD']}\n  - SMA50 Trend: {info['SMA50 Trend']}\n  - SMA200 Trend: {info['SMA200 Trend']}\n  - ADX (Trend Strength): {info['ADX']}\n\n"
+        asset_report = f"{asset}:
+  - Close: {info['Close']}
+  - RSI: {info['RSI']}
+  - MACD: {info['MACD']}
+  - SMA50 Trend: {info['SMA50 Trend']}
+  - SMA200 Trend: {info['SMA200 Trend']}
+  - ADX (Trend Strength): {info['ADX']}
+\n"
         report += asset_report
     except Exception as e:
-        print(f"Error fetching {asset}: {e}")
+        error_report = f"{asset}:
+  - ⚠️ 資料取得失敗，錯誤原因：{e}
+\n"
+        report += error_report
 
 # Email 設定
 email_user = "roverpoonhkg@gmail.com"
@@ -66,7 +78,7 @@ msg['From'] = email_user
 msg['To'] = email_send
 msg['Subject'] = subject
 
-body = report
+body = report if report.strip() else "⚠️ 今日未能取得任何資產資料，請稍後再試。"
 msg.attach(MIMEText(body, 'plain'))
 
 # 發送 Email
