@@ -1,4 +1,4 @@
-# 完整版 send_email.py（已修正空白問題）
+# 完整版 send_email.py（修正f-string換行問題）
 
 import yfinance as yf
 import pandas as pd
@@ -18,7 +18,7 @@ assets = [
 
 # 抓取每個資產的資料
 def get_asset_info(ticker):
-    df = yf.download(ticker, period="6mo", interval="1d")  # 拉長至6個月資料
+    df = yf.download(ticker, period="6mo", interval="1d")
     if df.empty:
         raise ValueError("無法取得資料")
     df = df[-50:].copy()
@@ -35,7 +35,7 @@ def get_asset_info(ticker):
     sma50_status = "Above SMA50" if latest['Close'] > sma50.iloc[-1] else "Below SMA50"
     sma200_status = "Above SMA200" if latest['Close'] > sma200.iloc[-1] else "Below SMA200"
 
-    adx = df['Close'].diff().abs().rolling(window=14).mean().iloc[-1]  # 簡易版ADX
+    adx = df['Close'].diff().abs().rolling(window=14).mean().iloc[-1]
 
     return {
         'Close': round(latest['Close'], 2),
@@ -51,19 +51,21 @@ report = ""
 for asset in assets:
     try:
         info = get_asset_info(asset)
-        asset_report = f"{asset}:
-  - Close: {info['Close']}
-  - RSI: {info['RSI']}
-  - MACD: {info['MACD']}
-  - SMA50 Trend: {info['SMA50 Trend']}
-  - SMA200 Trend: {info['SMA200 Trend']}
-  - ADX (Trend Strength): {info['ADX']}
-\n"
+        asset_report = (
+            f"{asset}:\n"
+            f"  - Close: {info['Close']}\n"
+            f"  - RSI: {info['RSI']}\n"
+            f"  - MACD: {info['MACD']}\n"
+            f"  - SMA50 Trend: {info['SMA50 Trend']}\n"
+            f"  - SMA200 Trend: {info['SMA200 Trend']}\n"
+            f"  - ADX (Trend Strength): {info['ADX']}\n\n"
+        )
         report += asset_report
     except Exception as e:
-        error_report = f"{asset}:
-  - ⚠️ 資料取得失敗，錯誤原因：{e}
-\n"
+        error_report = (
+            f"{asset}:\n"
+            f"  - ⚠️ 資料取得失敗，錯誤原因：{e}\n\n"
+        )
         report += error_report
 
 # Email 設定
