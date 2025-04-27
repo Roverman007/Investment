@@ -1,4 +1,4 @@
-# 最強版 send_email.py（修正MACD錯誤、RSI標準版、確保完全正確，無資料自動補無資料）
+# 最強修正版 send_email.py
 
 import yfinance as yf
 import pandas as pd
@@ -19,7 +19,7 @@ assets = [
 # 抓取每個資產的資料
 def get_asset_info(ticker):
     df = yf.download(ticker, period="6mo", interval="1d")
-    if df.empty or len(df) < 50:
+    if df.empty:
         raise ValueError("無法取得資料")
     df = df[-50:].copy()
 
@@ -39,16 +39,18 @@ def get_asset_info(ticker):
     latest = df.iloc[-1]
 
     macd_status = "金叉" if latest['MACD'].item() > latest['Signal'].item() else "死叉"
+
     sma50 = df['Close'].rolling(window=50).mean()
     sma200 = df['Close'].rolling(window=200).mean()
+
     sma50_status = "Above SMA50" if latest['Close'].item() > sma50.iloc[-1].item() else "Below SMA50"
     sma200_status = "Above SMA200" if latest['Close'].item() > sma200.iloc[-1].item() else "Below SMA200"
 
-    adx = df['Close'].diff().abs().rolling(window=14).mean().iloc[-1]
+    adx = df['Close'].diff().abs().rolling(window=14).mean().iloc[-1].item()
 
     return {
-        'Close': round(latest['Close'], 2),
-        'RSI': round(latest['RSI'], 1),
+        'Close': round(latest['Close'].item(), 2),
+        'RSI': round(latest['RSI'].item(), 1),
         'MACD': macd_status,
         'SMA50 Trend': sma50_status,
         'SMA200 Trend': sma200_status,
@@ -70,8 +72,7 @@ for asset in assets:
             f"  - ADX (Trend Strength): {info['ADX']}\n\n"
         )
         report += asset_report
-    except Exception as e:
-        # 改成如果有錯誤, 都要有完整格式, 只是顯示"無資料"
+    except Exception:
         asset_report = (
             f"{asset}:\n"
             f"  - Close: 無資料\n"
@@ -85,7 +86,7 @@ for asset in assets:
 
 # Email 設定
 email_user = "roverpoonhkg@gmail.com"
-email_pass = "bkws mgrr kmpy cpqv"  # 用 App Password
+email_pass = "bkws mgrr kmpy cpqv"  # Gmail App Password
 email_send = "klauspoon@gmail.com"
 
 subject = "Roverman 技術分析更新"
