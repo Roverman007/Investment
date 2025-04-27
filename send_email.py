@@ -34,10 +34,10 @@ for ticker in tickers:
 # 整理 email 內容
 email_content = "\n".join(summary)
 
-# 寄出 Email
-email_user = os.environ['EMAIL_USER']
+# Gmail 發送設定
+email_user = os.environ['EMAIL_USER']   # GitHub Secret 設定
 email_pass = os.environ['EMAIL_PASS']
-email_to = "klauspoon@gmail.com"
+email_to = "klauspoon@gmail.com"         # 收件人（固定）
 
 msg = MIMEText(email_content)
 msg['Subject'] = "📈 Roverman 每週技術指標分析"
@@ -46,5 +46,5 @@ msg['To'] = email_to
 
 server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
 server.login(email_user, email_pass)
-server.sendmail(email_user, email_to, msg.as_string())
+server.sendmail(email_user, [email_to], msg.as_string())
 server.quit()
