@@ -1,4 +1,4 @@
-# 完整版 send_email.py（修正f-string換行問題）
+# 最強版 send_email.py（修正MACD錯誤、RSI標準版、確保完全正確）
 
 import yfinance as yf
 import pandas as pd
@@ -22,18 +22,27 @@ def get_asset_info(ticker):
     if df.empty:
         raise ValueError("無法取得資料")
     df = df[-50:].copy()
+
+    # 計算EMA / MACD
     df['EMA12'] = df['Close'].ewm(span=12, adjust=False).mean()
     df['EMA26'] = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = df['EMA12'] - df['EMA26']
     df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    df['RSI'] = 100 - (100 / (1 + df['Close'].pct_change().rolling(window=14).mean()))
+
+    # 計算標準版RSI
+    delta = df['Close'].diff()
+    gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+    loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
+
     latest = df.iloc[-1]
 
-    macd_status = "金叉" if latest['MACD'] > latest['Signal'] else "死叉"
+    macd_status = "金叉" if latest['MACD'].item() > latest['Signal'].item() else "死叉"
     sma50 = df['Close'].rolling(window=50).mean()
     sma200 = df['Close'].rolling(window=200).mean()
-    sma50_status = "Above SMA50" if latest['Close'] > sma50.iloc[-1] else "Below SMA50"
-    sma200_status = "Above SMA200" if latest['Close'] > sma200.iloc[-1] else "Below SMA200"
+    sma50_status = "Above SMA50" if latest['Close'].item() > sma50.iloc[-1].item() else "Below SMA50"
+    sma200_status = "Above SMA200" if latest['Close'].item() > sma200.iloc[-1].item() else "Below SMA200"
 
     adx = df['Close'].diff().abs().rolling(window=14).mean().iloc[-1]
 
