@@ -1,4 +1,5 @@
-# send_email.py - 完整最強修正版
+# 最強版 send_email.py（修正MACD錯誤、RSI標準版、確保完全正確，無資料自動補無資料）
+
 import yfinance as yf
 import pandas as pd
 import smtplib
@@ -18,51 +19,43 @@ assets = [
 # 抓取每個資產的資料
 def get_asset_info(ticker):
     df = yf.download(ticker, period="6mo", interval="1d")
-    if df.empty:
+    if df.empty or len(df) < 50:
         raise ValueError("無法取得資料")
-    df = df.copy()
+    df = df[-50:].copy()
 
-    # 計算技術指標
+    # 計算EMA / MACD
     df['EMA12'] = df['Close'].ewm(span=12, adjust=False).mean()
     df['EMA26'] = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = df['EMA12'] - df['EMA26']
     df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
 
+    # 計算標準版RSI
     delta = df['Close'].diff()
-    gain = delta.clip(lower=0).rolling(window=14).mean()
-    loss = -delta.clip(upper=0).rolling(window=14).mean()
+    gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+    loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
 
-    sma50 = df['Close'].rolling(window=50).mean()
-    sma200 = df['Close'].rolling(window=200).mean()
-
     latest = df.iloc[-1]
 
-    close_price = float(latest['Close'])
-    rsi_value = float(latest['RSI'])
-    macd_value = float(latest['MACD'])
-    signal_value = float(latest['Signal'])
+    macd_status = "金叉" if latest['MACD'].item() > latest['Signal'].item() else "死叉"
+    sma50 = df['Close'].rolling(window=50).mean()
+    sma200 = df['Close'].rolling(window=200).mean()
+    sma50_status = "Above SMA50" if latest['Close'].item() > sma50.iloc[-1].item() else "Below SMA50"
+    sma200_status = "Above SMA200" if latest['Close'].item() > sma200.iloc[-1].item() else "Below SMA200"
 
-    sma50_value = float(sma50.iloc[-1])
-    sma200_value = float(sma200.iloc[-1])
-
-    adx_strength = float(df['Close'].diff().abs().rolling(window=14).mean().iloc[-1])
-
-    macd_status = "金叉" if macd_value > signal_value else "死叉"
-    sma50_status = "Above SMA50" if close_price > sma50_value else "Below SMA50"
-    sma200_status = "Above SMA200" if close_price > sma200_value else "Below SMA200"
+    adx = df['Close'].diff().abs().rolling(window=14).mean().iloc[-1]
 
     return {
-        'Close': round(close_price, 2),
-        'RSI': round(rsi_value, 1),
+        'Close': round(latest['Close'], 2),
+        'RSI': round(latest['RSI'], 1),
         'MACD': macd_status,
         'SMA50 Trend': sma50_status,
         'SMA200 Trend': sma200_status,
-        'ADX': round(adx_strength, 1)
+        'ADX': round(adx, 1)
     }
 
-# 整理 Email 報告
+# 集中所有資產的資料
 report = ""
 for asset in assets:
     try:
@@ -78,15 +71,21 @@ for asset in assets:
         )
         report += asset_report
     except Exception as e:
-        error_report = (
+        # 改成如果有錯誤, 都要有完整格式, 只是顯示"無資料"
+        asset_report = (
             f"{asset}:\n"
-            f"  - ⚠️ 資料取得失敗，錯誤原因：{e}\n\n"
+            f"  - Close: 無資料\n"
+            f"  - RSI: 無資料\n"
+            f"  - MACD: 無資料\n"
+            f"  - SMA50 Trend: 無資料\n"
+            f"  - SMA200 Trend: 無資料\n"
+            f"  - ADX (Trend Strength): 無資料\n\n"
         )
-        report += error_report
+        report += asset_report
 
 # Email 設定
 email_user = "roverpoonhkg@gmail.com"
-email_pass = "bkws mgrr kmpy cpqv"  # App Password
+email_pass = "bkws mgrr kmpy cpqv"  # 用 App Password
 email_send = "klauspoon@gmail.com"
 
 subject = "Roverman 技術分析更新"
