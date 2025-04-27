@@ -1,5 +1,4 @@
-# send_email.py 最強修正版！
-
+# send_email.py - 完整最強修正版
 import yfinance as yf
 import pandas as pd
 import smtplib
@@ -21,7 +20,7 @@ def get_asset_info(ticker):
     df = yf.download(ticker, period="6mo", interval="1d")
     if df.empty:
         raise ValueError("無法取得資料")
-    df = df[-50:].copy()
+    df = df.copy()
 
     # 計算技術指標
     df['EMA12'] = df['Close'].ewm(span=12, adjust=False).mean()
@@ -35,16 +34,24 @@ def get_asset_info(ticker):
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
 
+    sma50 = df['Close'].rolling(window=50).mean()
+    sma200 = df['Close'].rolling(window=200).mean()
+
     latest = df.iloc[-1]
 
     close_price = float(latest['Close'])
     rsi_value = float(latest['RSI'])
-    macd_status = "金叉" if float(latest['MACD']) > float(latest['Signal']) else "死叉"
-    sma50 = df['Close'].rolling(window=50).mean().iloc[-1]
-    sma200 = df['Close'].rolling(window=200).mean().iloc[-1]
-    sma50_status = "Above SMA50" if close_price > sma50 else "Below SMA50"
-    sma200_status = "Above SMA200" if close_price > sma200 else "Below SMA200"
+    macd_value = float(latest['MACD'])
+    signal_value = float(latest['Signal'])
+
+    sma50_value = float(sma50.iloc[-1])
+    sma200_value = float(sma200.iloc[-1])
+
     adx_strength = float(df['Close'].diff().abs().rolling(window=14).mean().iloc[-1])
+
+    macd_status = "金叉" if macd_value > signal_value else "死叉"
+    sma50_status = "Above SMA50" if close_price > sma50_value else "Below SMA50"
+    sma200_status = "Above SMA200" if close_price > sma200_value else "Below SMA200"
 
     return {
         'Close': round(close_price, 2),
@@ -55,7 +62,7 @@ def get_asset_info(ticker):
         'ADX': round(adx_strength, 1)
     }
 
-# 集中所有資產的資料
+# 整理 Email 報告
 report = ""
 for asset in assets:
     try:
